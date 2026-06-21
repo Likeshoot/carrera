@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Controlador de Kart</title>
+    <style>
+        body {
+            margin: 0;
+            background: #110e24;
+            color: #fff;
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+        #setup {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .team-btn {
+            flex: 1;
+            border: none;
+            font-size: 28px;
+            font-weight: bold;
+            color: #fff;
+        }
+        .team-btn.red { background: #ff0055; }
+        .team-btn.blue { background: #0099ff; }
+        
+        #gamepad {
+            display: none;
+            flex-direction: column;
+            height: 100%;
+        }
+        #problem-screen {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #1a1635;
+            font-size: 38px;
+            font-weight: bold;
+            border-bottom: 4px solid #2d2659;
+        }
+        #input-display {
+            font-size: 32px;
+            color: #00ff87;
+            margin-top: 5px;
+            min-height: 38px;
+        }
+        #keyboard {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            background: #0c0a1a;
+            padding: 8px;
+            gap: 8px;
+            height: 55vh;
+        }
+        .key {
+            background: #252047;
+            border: none;
+            border-radius: 12px;
+            color: #fff;
+            font-size: 26px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .key:active { background: #3d3573; }
+        .key.action { background: #3d346d; }
+        .key.send { background: #00ff87; color: #000; }
+
+        #lock-screen {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 0, 0, 0.9);
+            backdrop-filter: blur(4px);
+            z-index: 100;
+            text-align: center;
+            justify-content: center;
+            align-items: center;
+            font-size: 26px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="lock-screen">💨 ¡MOTOR AHOGADO!<br><span style="font-size:16px; font-weight:normal;">Espera 2 segundos...</span></div>
+
+    <div id="setup">
+        <button class="team-btn red" onclick="selectTeam('red')">EQUIPO ROJO</button>
+        <button class="team-btn blue" onclick="selectTeam('blue')">EQUIPO AZUL</button>
+    </div>
+
+    <div id="gamepad">
+        <div id="problem-screen">
+            <div id="math-text">¡Espera al Profe!</div>
+            <div id="input-display"></div>
+        </div>
+        <div id="keyboard">
+            <button class="key" onclick="pressKey('1')">1</button>
+            <button class="key" onclick="pressKey('2')">2</button>
+            <button class="key" onclick="pressKey('3')">3</button>
+            <button class="key" onclick="pressKey('4')">4</button>
+            <button class="key" onclick="pressKey('5')">5</button>
+            <button class="key" onclick="pressKey('6')">6</button>
+            <button class="key" onclick="pressKey('7')">7</button>
+            <button class="key" onclick="pressKey('8')">8</button>
+            <button class="key" onclick="pressKey('9')">9</button>
+            <button class="key action" onclick="pressKey('clear')">C</button>
+            <button class="key" onclick="pressKey('0')">0</button>
+            <button class="key send" onclick="pressKey('send')">🏁</button>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let currentInput = "";
+
+        function selectTeam(team) {
+            document.getElementById('setup').style.display = 'none';
+            document.getElementById('gamepad').style.display = 'flex';
+            document.getElementById('problem-screen').style.background = team === 'red' ? '#2b161c' : '#16222b';
+            socket.emit('join-team', team);
+        }
+
+        socket.on('new-problem', (text) => {
+            document.getElementById('math-text').innerText = text;
+            resetInput();
+        });
+
+        function pressKey(key) {
+            if (key === 'clear') {
+                currentInput = "";
+            } else if (key === 'send') {
+                if (currentInput !== "") socket.emit('submit-answer', currentInput);
+            } else {
+                if (currentInput.length < 5) currentInput += key;
+            }
+            document.getElementById('input-display').innerText = currentInput;
+        }
+
+        socket.on('answer-result', (data) => {
+            if (data.correct) {
+                document.getElementById('math-text').innerText = data.nextProblem;
+                resetInput();
+            } else {
+                const lock = document.getElementById('lock-screen');
+                lock.style.display = 'flex';
+                setTimeout(() => {
+                    lock.style.display = 'none';
+                    resetInput();
+                }, 2000);
+            }
+        });
+
+        function resetInput() {
+            currentInput = "";
+            document.getElementById('input-display').innerText = "";
+        }
+    </script>
+</body>
+</html>
